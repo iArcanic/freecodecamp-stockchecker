@@ -65,19 +65,40 @@ module.exports = function (app) {
     const likeStock = async (stockName, nextStep) => {};
 
     // Get price
-    const getPrice = async (stockDocument, nextStep) => {
-      return stockDocument;
+    const getPrice = async (stockDocument) => {
+      try {
+        const fetchModule = await import("node-fetch");
+        const fetch = fetchModule.default;
+
+        const requestUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockDocument["name"]}`;
+        const response = await fetch(requestUrl);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const price = data.chart.result[0].meta.regularMarketPrice;
+        stockDocument["price"] = parseFloat(price);
+
+        return parseFloat(price);
+      } catch (error) {
+        console.error("Error fetching stock price:", error.message);
+        return null;
+      }
     };
 
     // Build response for one stock
-    const processOneStock = (stockDocument, nextStep) => {
+    const processOneStock = (stockDocument) => {
       responseObject["stockData"]["stock"] = stockDocument["name"];
+      responseObject["stockData"]["price"] = stockDocument["price"];
+      responseObject["stockData"]["likes"] = stockDocument["likes"];
     };
 
     let stocks = [];
 
     // Build response for two stocks
-    const processTwoStocks = (stockDocuments, nextStep) => {};
+    const processTwoStocks = (stockDocuments) => {};
 
     // Process inputs
     if (typeof req.query.stock == "string") {

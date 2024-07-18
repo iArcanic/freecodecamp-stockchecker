@@ -5,7 +5,6 @@ let mongodb = require("mongodb");
 let mongoose = require("mongoose");
 
 module.exports = function (app) {
-
   // MongoDB database connection string
   let uri =
     "mongodb+srv://" +
@@ -14,6 +13,7 @@ module.exports = function (app) {
     process.env.PW +
     "@" +
     process.env.CLUSTER +
+    "/" +
     process.env.DB +
     "?retryWrites=true&w=majority&appName=" +
     process.env.APP_NAME;
@@ -23,9 +23,9 @@ module.exports = function (app) {
 
   // Schema
   let stockSchema = new mongoose.Schema({
-    name: {type: String, required: true},
-    likes: {type: Number, default: 0},,
-    ips: [String]
+    name: { type: String, required: true },
+    likes: { type: Number, default: 0 },
+    ips: [String],
   });
 
   // Model

@@ -8,15 +8,17 @@ module.exports = function (app) {
   // MongoDB database connection string
   let uri =
     "mongodb+srv://" +
-    process.env.USER +
+    process.env.DB_USER +
     ":" +
-    process.env.PW +
+    process.env.DB_PASSWORD +
     "@" +
     process.env.CLUSTER +
     "/" +
     process.env.DB +
     "?retryWrites=true&w=majority&appName=" +
     process.env.APP_NAME;
+
+  console.log(uri);
 
   // Connect to the MongoDB database
   mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });

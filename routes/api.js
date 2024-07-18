@@ -18,8 +18,6 @@ module.exports = function (app) {
     "?retryWrites=true&w=majority&appName=" +
     process.env.APP_NAME;
 
-  console.log(uri);
-
   // Connect to the MongoDB database
   mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 

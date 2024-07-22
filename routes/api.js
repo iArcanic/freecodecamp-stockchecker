@@ -36,17 +36,14 @@ module.exports = function (app) {
 
   app.route("/api/stock-prices").get(async function (req, res) {
     let responseObject = {};
-    responseObject["stockData"] = {};
-
-    // Variable to determine the number of stocks
     let twoStocks = false;
 
-    // Output response
-    const outputResponse = () => {
-      return res.json(responseObject);
+    // Anonymize IP function
+    const anonymizeIP = (ip) => {
+      return ip.split(".").slice(0, 3).join(".") + ".0";
     };
 
-    // Find/update Stock document
+    // Find or Update Stock
     const findOrUpdateStock = async (stockName, documentUpdate) => {
       try {
         const stockDocument = await Stock.findOneAndUpdate(
@@ -61,16 +58,13 @@ module.exports = function (app) {
       }
     };
 
-    // Like stock
-    const likeStock = async (stockName, nextStep) => {};
-
-    // Get price
-    const getPrice = async (stockDocument) => {
+    // Get Price
+    const getPrice = async (stockName) => {
       try {
         const fetchModule = await import("node-fetch");
         const fetch = fetchModule.default;
 
-        const requestUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${stockDocument["name"]}`;
+        const requestUrl = `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stockName}/quote`;
         const response = await fetch(requestUrl);
 
         if (!response.ok) {
@@ -78,43 +72,58 @@ module.exports = function (app) {
         }
 
         const data = await response.json();
-        const price = data.chart.result[0].meta.regularMarketPrice;
-        stockDocument["price"] = parseFloat(price);
-
-        return parseFloat(price);
+        return parseFloat(data.latestPrice);
       } catch (error) {
         console.error("Error fetching stock price:", error.message);
         return null;
       }
     };
 
-    // Build response for one stock
-    const processOneStock = (stockDocument) => {
-      responseObject["stockData"]["stock"] = stockDocument["name"];
-      responseObject["stockData"]["price"] = stockDocument["price"];
-      responseObject["stockData"]["likes"] = stockDocument["likes"];
-    };
+    // Process Stock
+    const processStock = async (stockName, like) => {
+      let stockDocument = await findOrUpdateStock(stockName, {});
+      if (!stockDocument) return null;
 
-    let stocks = [];
-
-    // Build response for two stocks
-    const processTwoStocks = (stockDocuments) => {};
-
-    // Process inputs
-    if (typeof req.query.stock == "string") {
-      twoStocks = true;
-
-      // Stock 1
-      let stockName = req.query.stock;
-      let documentUpdate = {};
-      const stockDocument = await findOrUpdateStock(stockName, documentUpdate);
-      if (stockDocument) {
-        await getPrice(stockDocument);
-        processOneStock(stockDocument);
-        outputResponse();
+      if (like && stockDocument.ips.indexOf(anonymizeIP(req.ip)) === -1) {
+        stockDocument.likes++;
+        stockDocument.ips.push(anonymizeIP(req.ip));
+        await stockDocument.save();
       }
 
-      // Stock 2
-    }
+      const price = await getPrice(stockName);
+      return {
+        stock: stockDocument.name,
+        price: price,
+        likes: stockDocument.likes,
+      };
+    };
+
+    // Process Response
+    const processResponse = async () => {
+      const stock1 = req.query.stock;
+      const like = req.query.like === "true";
+
+      if (Array.isArray(stock1)) {
+        twoStocks = true;
+        const stockData = await Promise.all(
+          stock1.map((stock) => processStock(stock, like)),
+        );
+
+        responseObject["stockData"] = stockData.map((stock, index) => {
+          return {
+            stock: stock.stock,
+            price: stock.price,
+            rel_likes:
+              stock.likes -
+              (index === 0 ? stockData[1].likes : stockData[0].likes),
+          };
+        });
+      } else {
+        responseObject["stockData"] = await processStock(stock1, like);
+      }
+      res.json(responseObject);
+    };
+
+    processResponse();
   });
 };
